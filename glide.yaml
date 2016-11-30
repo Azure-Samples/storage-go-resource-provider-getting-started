@@ -1,0 +1,12 @@
+package: storage-go-resource-provider-getting-started
+import:
+- package: github.com/Azure/azure-sdk-for-go
+  version: v6.0.0-beta
+  subpackages:
+  - arm/resources/resources
+  - arm/storage
+- package: github.com/Azure/go-autorest
+  version: v7.2.2
+  subpackages:
+  - autorest/azure
+  - autorest/to
