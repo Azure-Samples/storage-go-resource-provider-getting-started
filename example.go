@@ -84,8 +84,8 @@ func main() {
 	_, err = storageClient.Create(groupName, accountName, storage.AccountCreateParameters{
 		Sku: &storage.Sku{
 			Name: storage.StandardLRS},
-		Location:   to.StringPtr(westUS),
-		Properties: &storage.AccountPropertiesCreateParameters{},
+		Location: to.StringPtr(westUS),
+		AccountPropertiesCreateParameters: &storage.AccountPropertiesCreateParameters{},
 	}, nil)
 	onErrorFail(err, "Create failed")
 
@@ -98,7 +98,7 @@ func main() {
 	fmt.Printf("\t          Sku Name: %v\n", account.Sku.Name)
 	fmt.Printf("\t              Type: %v\n", *account.Type)
 	fmt.Printf("\t          Location: %v\n", *account.Location)
-	fmt.Printf("\tProvisioning State: %v\n", account.Properties.ProvisioningState)
+	fmt.Printf("\tProvisioning State: %v\n", account.ProvisioningState)
 
 	fmt.Printf("List all storage accounts in '%s' resource group\n", groupName)
 	listGroupAccounts, err := storageClient.ListByResourceGroup(groupName)
