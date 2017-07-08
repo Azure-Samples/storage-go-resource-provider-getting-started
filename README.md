@@ -78,16 +78,17 @@ It starts by creating an OAuthConfig and ServicePrincipalToken using your suppli
 
 ```go
 func init() {
-    subscriptionID = getEnvVarOrExit("AZURE_SUBSCRIPTION_ID")
-    tenantID := getEnvVarOrExit("AZURE_TENANT_ID")
+    subscriptionID := getEnvVarOrExit("AZURE_SUBSCRIPTION_ID")
+	tenantID := getEnvVarOrExit("AZURE_TENANT_ID")
 
-    oauthConfig, err := azure.PublicCloud.OAuthConfigForTenant(tenantID)
-    onErrorFail(err, "OAuthConfigForTenant failed")
+	oauthConfig, err := adal.NewOAuthConfig(azure.PublicCloud.ActiveDirectoryEndpoint, tenantID)
+	onErrorFail(err, "OAuthConfigForTenant failed")
 
-    clientID := getEnvVarOrExit("AZURE_CLIENT_ID")
-    clientSecret := getEnvVarOrExit("AZURE_CLIENT_SECRET")
-    spToken, err = azure.NewServicePrincipalToken(*oauthConfig, clientID, clientSecret, azure.PublicCloud.ResourceManagerEndpoint)
-    onErrorFail(err, "NewServicePrincipalToken failed")
+	clientID := getEnvVarOrExit("AZURE_CLIENT_ID")
+	clientSecret := getEnvVarOrExit("AZURE_CLIENT_SECRET")
+	spToken, err := adal.NewServicePrincipalToken(*oauthConfig, clientID, clientSecret, azure.PublicCloud.ResourceManagerEndpoint)
+	authorizer := autorest.NewBearerAuthorizer(spToken)
+	onErrorFail(err, "NewServicePrincipalToken failed")
 }
 ```
 
@@ -96,7 +97,7 @@ func init() {
 ### Register the Storage Resource Provider
 
 ```go
-_, err := resourcesClient.Register(provider)
+resourcesClient.Register(provider)
 ```
 
 <a id="check"></a>
@@ -125,9 +126,9 @@ if *result.NameAvailable == true {
 A storage account needs a resource group to be created.
 
 ```go
-_, err = groupClient.CreateOrUpdate(groupName, resources.ResourceGroup{
-    Location: to.StringPtr(westUS)},
-)
+groupClient.CreateOrUpdate(groupName, resources.Group{
+    Location: to.StringPtr(location),
+})
 ```
 
 <a id="createsa"></a>
@@ -135,11 +136,12 @@ _, err = groupClient.CreateOrUpdate(groupName, resources.ResourceGroup{
 ### Create a new storage account
 
 ```go
-_, err = storageClient.Create(groupName, accountName, storage.AccountCreateParameters{
+storageClient.Create(groupName, accountName, storage.AccountCreateParameters{
     Sku: &storage.Sku{
-        Name: storage.StandardLRS},
-        Location:   to.StringPtr(westUS),
-        Properties: &storage.AccountPropertiesCreateParameters{},
+        Name: storage.StandardLRS,
+    },
+    Location: to.StringPtr(location),
+    AccountPropertiesCreateParameters: &storage.AccountPropertiesCreateParameters{},
 }, nil)
 ```
 
@@ -212,7 +214,7 @@ keys, err = storageClient.RegenerateKey(groupName, accountName, storage.AccountR
 Just like all resources, storage accounts can be updated.
 
 ```go
-_, err = storageClient.Update(groupName, accountName, storage.AccountUpdateParameters{
+storageClient.Update(groupName, accountName, storage.AccountUpdateParameters{
     Tags: &map[string]*string{
         "who rocks": to.StringPtr("golang"),
         "where":     to.StringPtr("on azure")},
@@ -237,13 +239,13 @@ for _, usage := range *usageList.Value {
 ### Delete storage account
 
 ```go
-_, err = storageClient.Delete(groupName, accountName)
+storageClient.Delete(groupName, accountName)
 ```
 
 At this point, the sample also deletes the resource group that it created.
 
 ```go
-_, err = groupsClient.Delete(groupName, nil)
+groupsClient.Delete(groupName, nil)
 ```
 
 <a id="info"></a>
