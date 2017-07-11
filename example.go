@@ -7,8 +7,10 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/arm/resources/resources"
 	"github.com/Azure/azure-sdk-for-go/arm/storage"
+	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/azure"
 	"github.com/Azure/go-autorest/autorest/to"
+	"github.com/Azure/go-autorest/autorest/utils"
 )
 
 const (
@@ -30,22 +32,15 @@ var (
 	resourcesClient resources.ProvidersClient
 	storageClient   storage.AccountsClient
 	groupClient     resources.GroupsClient
-	usageClient     storage.UsageOperationsClient
+	usageClient     storage.UsageClient
 )
 
 func init() {
-	subscriptionID := getEnvVarOrExit("AZURE_SUBSCRIPTION_ID")
-	tenantID := getEnvVarOrExit("AZURE_TENANT_ID")
+	authorizer, err := utils.GetAuthorizer(azure.PublicCloud)
+	onErrorFail(err, "GetAuthorizer failed")
 
-	oauthConfig, err := azure.PublicCloud.OAuthConfigForTenant(tenantID)
-	onErrorFail(err, "OAuthConfigForTenant failed")
-
-	clientID := getEnvVarOrExit("AZURE_CLIENT_ID")
-	clientSecret := getEnvVarOrExit("AZURE_CLIENT_SECRET")
-	spToken, err := azure.NewServicePrincipalToken(*oauthConfig, clientID, clientSecret, azure.PublicCloud.ResourceManagerEndpoint)
-	onErrorFail(err, "NewServicePrincipalToken failed")
-
-	createClients(subscriptionID, spToken)
+	subscriptionID := utils.GetEnvVarOrExit("AZURE_SUBSCRIPTION_ID")
+	createClients(subscriptionID, authorizer)
 }
 
 func main() {
@@ -68,6 +63,8 @@ func main() {
 	if input == "y" {
 		delete()
 	}
+
+	fmt.Println("Done!")
 }
 
 // getEnvVarOrExit returns the value of specified environment variable or terminates if it's not defined.
@@ -81,18 +78,24 @@ func getEnvVarOrExit(varName string) string {
 	return value
 }
 
-func createClients(subscriptionID string, spToken *azure.ServicePrincipalToken) {
+func createClients(subscriptionID string, authorizer *autorest.BearerAuthorizer) {
+	sampleUA := fmt.Sprintf("Azure-Samples/storage-go-resource-provider-getting-started/%s", utils.GetCommit())
+
 	resourcesClient = resources.NewProvidersClient(subscriptionID)
-	resourcesClient.Authorizer = spToken
+	resourcesClient.Authorizer = authorizer
+	resourcesClient.Client.AddToUserAgent(sampleUA)
 
 	storageClient = storage.NewAccountsClient(subscriptionID)
-	storageClient.Authorizer = spToken
+	storageClient.Authorizer = authorizer
+	storageClient.Client.AddToUserAgent(sampleUA)
 
 	groupClient = resources.NewGroupsClient(subscriptionID)
-	groupClient.Authorizer = spToken
+	groupClient.Authorizer = authorizer
+	groupClient.Client.AddToUserAgent(sampleUA)
 
-	usageClient = storage.NewUsageOperationsClient(subscriptionID)
-	usageClient.Authorizer = spToken
+	usageClient = storage.NewUsageClient(subscriptionID)
+	usageClient.Authorizer = authorizer
+	usageClient.Client.AddToUserAgent(sampleUA)
 }
 
 func registerResourceProvider() {
@@ -123,22 +126,23 @@ func checkAccountAvailability() {
 
 func createResourceGroup() {
 	fmt.Println("Create resource group...")
-	_, err := groupClient.CreateOrUpdate(groupName, resources.ResourceGroup{
+	_, err := groupClient.CreateOrUpdate(groupName, resources.Group{
 		Location: to.StringPtr(location),
 	})
 	onErrorFail(err, "CreateOrUpdate failed")
 }
 
 func createStorageAccount() {
-	fmt.Println("Create storage account...")
-	_, err := storageClient.Create(groupName, accountName, storage.AccountCreateParameters{
+	fmt.Println("Starting to create storage account...")
+	_, errChan := storageClient.Create(groupName, accountName, storage.AccountCreateParameters{
 		Sku: &storage.Sku{
 			Name: storage.StandardLRS,
 		},
 		Location: to.StringPtr(location),
 		AccountPropertiesCreateParameters: &storage.AccountPropertiesCreateParameters{},
 	}, nil)
-	onErrorFail(err, "Create failed")
+	onErrorFail(<-errChan, "Create failed")
+	fmt.Println("... storage account created.")
 }
 
 func getStorageAccountProperties() {
@@ -230,9 +234,10 @@ func delete() {
 	_, err := storageClient.Delete(groupName, accountName)
 	onErrorFail(err, "Delete failed")
 
-	fmt.Println("Delete resource group...")
-	_, err = groupClient.Delete(groupName, nil)
-	onErrorFail(err, "Delete failed")
+	fmt.Println("Starting to delete resource group...")
+	_, errChan := groupClient.Delete(groupName, nil)
+	onErrorFail(<-errChan, "Delete failed")
+	fmt.Println("... resource group deleted.")
 }
 
 // onErrorFail prints a failure message and exits the program if err is not nil.
