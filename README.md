@@ -74,24 +74,6 @@ go run example.go
 
 The sample checks storage account name availability, creates a new storage account, gets the storage account properties, lists the storage accounts in the subscription or resource group, lists the storage account keys, regenerates the storage account keys, updates the storage account SKU, and deletes the storage account.
 
-It starts by creating an OAuthConfig and ServicePrincipalToken using your supplied credentials
-
-```go
-func init() {
-    subscriptionID := getEnvVarOrExit("AZURE_SUBSCRIPTION_ID")
-	tenantID := getEnvVarOrExit("AZURE_TENANT_ID")
-
-	oauthConfig, err := adal.NewOAuthConfig(azure.PublicCloud.ActiveDirectoryEndpoint, tenantID)
-	onErrorFail(err, "OAuthConfigForTenant failed")
-
-	clientID := getEnvVarOrExit("AZURE_CLIENT_ID")
-	clientSecret := getEnvVarOrExit("AZURE_CLIENT_SECRET")
-	spToken, err := adal.NewServicePrincipalToken(*oauthConfig, clientID, clientSecret, azure.PublicCloud.ResourceManagerEndpoint)
-	authorizer := autorest.NewBearerAuthorizer(spToken)
-	onErrorFail(err, "NewServicePrincipalToken failed")
-}
-```
-
 <a id="register"></a>
 
 ### Register the Storage Resource Provider

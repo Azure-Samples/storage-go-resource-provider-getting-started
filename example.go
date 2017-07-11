@@ -2,17 +2,15 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
 	"os"
-	"os/exec"
 
 	"github.com/Azure/azure-sdk-for-go/arm/resources/resources"
 	"github.com/Azure/azure-sdk-for-go/arm/storage"
 	"github.com/Azure/go-autorest/autorest"
-	"github.com/Azure/go-autorest/autorest/adal"
 	"github.com/Azure/go-autorest/autorest/azure"
 	"github.com/Azure/go-autorest/autorest/to"
+	"github.com/Azure/go-autorest/autorest/utils"
 )
 
 const (
@@ -38,18 +36,10 @@ var (
 )
 
 func init() {
-	subscriptionID := getEnvVarOrExit("AZURE_SUBSCRIPTION_ID")
-	tenantID := getEnvVarOrExit("AZURE_TENANT_ID")
+	authorizer, err := utils.GetAuthorizer(azure.PublicCloud)
+	onErrorFail(err, "GetAuthorizer failed")
 
-	oauthConfig, err := adal.NewOAuthConfig(azure.PublicCloud.ActiveDirectoryEndpoint, tenantID)
-	onErrorFail(err, "OAuthConfigForTenant failed")
-
-	clientID := getEnvVarOrExit("AZURE_CLIENT_ID")
-	clientSecret := getEnvVarOrExit("AZURE_CLIENT_SECRET")
-	spToken, err := adal.NewServicePrincipalToken(*oauthConfig, clientID, clientSecret, azure.PublicCloud.ResourceManagerEndpoint)
-	authorizer := autorest.NewBearerAuthorizer(spToken)
-	onErrorFail(err, "NewServicePrincipalToken failed")
-
+	subscriptionID := utils.GetEnvVarOrExit("AZURE_SUBSCRIPTION_ID")
 	createClients(subscriptionID, authorizer)
 }
 
@@ -89,7 +79,7 @@ func getEnvVarOrExit(varName string) string {
 }
 
 func createClients(subscriptionID string, authorizer *autorest.BearerAuthorizer) {
-	sampleUA := fmt.Sprintf("Azure-Samples/storage-go-resource-provider-getting-started/%s", getCommit())
+	sampleUA := fmt.Sprintf("Azure-Samples/storage-go-resource-provider-getting-started/%s", utils.GetCommit())
 
 	resourcesClient = resources.NewProvidersClient(subscriptionID)
 	resourcesClient.Authorizer = authorizer
@@ -256,15 +246,4 @@ func onErrorFail(err error, message string) {
 		fmt.Printf("%s: %s\n", message, err)
 		os.Exit(1)
 	}
-}
-
-func getCommit() string {
-	cmd := exec.Command("git", "rev-parse", "HEAD")
-	var out bytes.Buffer
-	cmd.Stdout = &out
-	err := cmd.Run()
-	if err != nil {
-		return ""
-	}
-	return string(out.Bytes()[:7])
 }
