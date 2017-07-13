@@ -79,7 +79,7 @@ func getEnvVarOrExit(varName string) string {
 }
 
 func createClients(subscriptionID string, authorizer *autorest.BearerAuthorizer) {
-	sampleUA := fmt.Sprintf("Azure-Samples/storage-go-resource-provider-getting-started/%s", utils.GetCommit())
+	sampleUA := fmt.Sprintf("sample/0001/%s", utils.GetCommit())
 
 	resourcesClient = resources.NewProvidersClient(subscriptionID)
 	resourcesClient.Authorizer = authorizer
